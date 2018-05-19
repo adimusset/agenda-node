@@ -1,36 +1,16 @@
 import moment from "moment";
 import knex from "../knexClient.js";
 
-// {
-//   kind: 'opening',
-//   starts_at: new Date('2014-08-04 09:30'),
-//   ends_at: new Date('2014-08-04 12:30'),
-//   weekly_recurring: true,
-// },
-// {
-//   kind: 'appointment',
-//   starts_at: new Date('2014-08-11 10:30'),
-//   ends_at: new Date('2014-08-11 11:30'),
-// }
-
-// {
-//   date: new Date('2014-08-11'),
-//   slots: [
-//     '9:30',
-//     '10:00',
-//     '11:30',
-//     '12:00',
-//   ]
-// }
-
+// get availabilities for next 7 days
 export default async function getAvailabilities(date) {
     const allEvents = await fetchEvents(date);
     return availabilitiesFromEvents(allEvents, date);
 }
 
+// concurently fetch appointments and openings
 async function fetchEvents(date) {
     // all appointments next week
-    const appointments = await knex
+    const appointments = knex
         .select("kind", "starts_at", "ends_at")
         .from("events")
         .whereBetween("starts_at", [
@@ -41,7 +21,7 @@ async function fetchEvents(date) {
         ])
         .andWhere("kind", "appointment");
     // all weekly recurring openings
-    const recurringOpenings = await knex
+    const recurringOpenings = knex
         .select("kind", "starts_at", "ends_at", "weekly_recurring")
         .from("events")
         .where({
@@ -49,7 +29,7 @@ async function fetchEvents(date) {
             weekly_recurring: true
         });
     // all non recurring openings next week
-    const nonRecurringOpenings = await knex
+    const nonRecurringOpenings = knex
         .select("kind", "starts_at", "ends_at", "weekly_recurring")
         .from("events")
         .whereBetween("starts_at", [
@@ -62,7 +42,17 @@ async function fetchEvents(date) {
             kind: "opening",
             weekly_recurring: false
         });
-    return { appointments, recurringOpenings, nonRecurringOpenings };
+    return await Promise.all([
+        appointments,
+        recurringOpenings,
+        nonRecurringOpenings
+    ]).then(fetchedEvents => {
+        return {
+            appointments: fetchedEvents[0],
+            recurringOpenings: fetchedEvents[1],
+            nonRecurringOpenings: fetchedEvents[2]
+        };
+    });
 }
 
 // computes availabilities from events coming from fetchEvents
@@ -72,6 +62,8 @@ const availabilitiesFromEvents = (
 ) => {
     // rearrange data by day
     const openingsByDay = new Map();
+    const appointmentsByDay = new Map();
+
     recurringOpenings.forEach(recurring => {
         for (
             let opening = moment(date)
@@ -96,12 +88,13 @@ const availabilitiesFromEvents = (
         }
     });
     nonRecurringOpenings.forEach(opening => {
-        store(openingByDay, opening);
+        store(openingsByDay, opening);
     });
-    const appointmentsByDay = new Map();
+
     appointments.forEach(appointment => {
         store(appointmentsByDay, appointment);
     });
+
     // compute availabilities for each day
     let output = [];
     for (
@@ -112,7 +105,7 @@ const availabilitiesFromEvents = (
         const day = opening.format("YYYY-MM-DD");
         const openings = openingsByDay.get(day) || [];
         // compute set of unique availabilities this day from openings
-        let slots = new Set();
+        const slots = new Set();
         openings.forEach(opening => {
             for (
                 let availability = moment(opening.starts_at);
@@ -146,7 +139,7 @@ const availabilitiesFromEvents = (
     return output;
 };
 
-// store an event in a map keyed by day
+// store an event by day
 const store = (map, event) => {
     const day = moment(event.starts_at).format("YYYY-MM-DD");
     let retrieved = map.get(day) || [];
