@@ -66,23 +66,25 @@ const availabilitiesFromEvents = (
 
     recurringOpenings.forEach(recurring => {
         for (
-            let opening = moment(date)
+            let start = moment(date)
                 .hour(moment(recurring.starts_at).hour())
                 .minute(moment(recurring.starts_at).minute());
-            opening.isBefore(moment(date).add(7, "days"));
-            opening.add(1, "day")
+            start.isBefore(moment(date).add(7, "days"));
+            start.add(1, "day")
         ) {
             // weekly openings are skipped on sundays
-            if (opening.day() === 0) {
+            if (start.day() === 0) {
                 continue;
             }
+            const end = start
+                .clone()
+                .hours(moment(recurring.ends_at).hour())
+                .minutes(moment(recurring.ends_at).minute());
+
             store(openingsByDay, {
                 kind: "opening",
-                starts_at: opening.toDate(),
-                ends_at: opening
-                    .hour(moment(recurring.ends_at).hour())
-                    .minute(moment(recurring.ends_at).minute())
-                    .toDate(),
+                starts_at: start.toDate(),
+                ends_at: end.toDate(),
                 weekly_recurring: true
             });
         }

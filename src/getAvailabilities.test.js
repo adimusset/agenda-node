@@ -94,7 +94,14 @@ describe("utils", () => {
                     ends_at: Date.parse("2018-05-22 11:00")
                 }
             ],
-            recurringOpenings: [],
+            recurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: Date.parse("2018-05-15 21:00"),
+                    ends_at: Date.parse("2018-05-15 21:30"),
+                    weekly_recurring: 1
+                }
+            ],
             nonRecurringOpenings: [
                 {
                     kind: "opening",
@@ -133,28 +140,29 @@ describe("utils", () => {
                     "17:00",
                     "18:30",
                     "19:00",
-                    "19:30"
+                    "19:30",
+                    "21:00"
                 ]
             },
             {
                 date: new Date("2018-05-22"),
-                slots: ["9:00", "11:00", "11:30"]
+                slots: ["9:00", "11:00", "11:30", "21:00"]
             },
             {
                 date: new Date("2018-05-23"),
-                slots: []
+                slots: ["21:00"]
             },
             {
                 date: new Date("2018-05-24"),
-                slots: []
+                slots: ["21:00"]
             },
             {
                 date: new Date("2018-05-25"),
-                slots: []
+                slots: ["21:00"]
             },
             {
                 date: new Date("2018-05-26"),
-                slots: []
+                slots: ["21:00"]
             },
             {
                 date: new Date("2018-05-27"),
