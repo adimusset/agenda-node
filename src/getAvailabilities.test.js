@@ -1,7 +1,8 @@
 import knex from "../knexClient.js";
 import getAvailabilities, {
     convertWeeklyOpening,
-    fetchEvents
+    fetchEvents,
+    availabilitiesFromEvents
 } from "./getAvailabilities.js";
 
 describe("getAvailabilities", () => {
@@ -49,5 +50,116 @@ describe("getAvailabilities", () => {
                 String(new Date("2014-08-16"))
             );
         });
+    });
+});
+
+describe("utils", () => {
+    it("should fetch data from database correctly", async () => {
+        const allEvents = await fetchEvents(new Date("2014-08-10"));
+        expect(allEvents).toEqual({
+            appointments: [
+                {
+                    kind: "appointment",
+                    starts_at: Date.parse("2014-08-11 10:30"),
+                    ends_at: Date.parse("2014-08-11 11:30")
+                }
+            ],
+            recurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: Date.parse("2014-08-04 09:30"),
+                    ends_at: Date.parse("2014-08-04 12:30"),
+                    weekly_recurring: 1
+                }
+            ],
+            nonRecurringOpenings: []
+        });
+    });
+    it("should convert events to availabilities correctly", async () => {
+        const events = {
+            appointments: [
+                {
+                    kind: "appointment",
+                    starts_at: Date.parse("2018-05-21 17:30"),
+                    ends_at: Date.parse("2018-05-21 18:30")
+                },
+                {
+                    kind: "appointment",
+                    starts_at: Date.parse("2018-05-21 11:30"),
+                    ends_at: Date.parse("2018-05-21 13:00")
+                },
+                {
+                    kind: "appointment",
+                    starts_at: Date.parse("2018-05-22 9:30"),
+                    ends_at: Date.parse("2018-05-22 11:00")
+                }
+            ],
+            recurringOpenings: [],
+            nonRecurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: Date.parse("2018-05-21 9:30"),
+                    ends_at: Date.parse("2018-05-21 20:00"),
+                    weekly_recurring: 0
+                },
+                {
+                    kind: "opening",
+                    starts_at: Date.parse("2018-05-22 09:00"),
+                    ends_at: Date.parse("2018-05-22 12:00"),
+                    weekly_recurring: 0
+                }
+            ]
+        };
+        const availabilities = availabilitiesFromEvents(
+            events,
+            new Date("2018-05-21")
+        );
+        expect(availabilities).toEqual([
+            {
+                date: new Date("2018-05-21"),
+                slots: [
+                    "9:30",
+                    "10:00",
+                    "10:30",
+                    "11:00",
+                    "13:00",
+                    "13:30",
+                    "14:00",
+                    "14:30",
+                    "15:00",
+                    "15:30",
+                    "16:00",
+                    "16:30",
+                    "17:00",
+                    "18:30",
+                    "19:00",
+                    "19:30"
+                ]
+            },
+            {
+                date: new Date("2018-05-22"),
+                slots: ["9:00", "11:00", "11:30"]
+            },
+            {
+                date: new Date("2018-05-23"),
+                slots: []
+            },
+            {
+                date: new Date("2018-05-24"),
+                slots: []
+            },
+            {
+                date: new Date("2018-05-25"),
+                slots: []
+            },
+            {
+                date: new Date("2018-05-26"),
+                slots: []
+            },
+            {
+                date: new Date("2018-05-27"),
+                slots: []
+            }
+        ]);
     });
 });
