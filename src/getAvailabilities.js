@@ -42,6 +42,7 @@ async function fetchEvents(date) {
             kind: "opening",
             weekly_recurring: false
         });
+    // wait on 3 promises at once
     return await Promise.all([
         appointments,
         recurringOpenings,
@@ -100,7 +101,7 @@ const availabilitiesFromEvents = (
     // compute availabilities for each day
     let output = [];
     for (
-        let opening = moment(date).hour(moment);
+        let opening = moment(date);
         opening.isBefore(moment(date).add(7, "days"));
         opening.add(1, "day")
     ) {
