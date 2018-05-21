@@ -1,14 +1,14 @@
 import moment from "moment";
 import knex from "../knexClient.js";
 
-// get availabilities for next 7 days
+// get availabilities for following 7 days
 export default async function getAvailabilities(date) {
     const allEvents = await fetchEvents(date);
     return availabilitiesFromEvents(allEvents, date);
 }
 
 // concurently fetch appointments and openings
-async function fetchEvents(date) {
+const fetchEvents = async date => {
     // all appointments next week
     const appointments = knex
         .select("kind", "starts_at", "ends_at")
@@ -42,19 +42,28 @@ async function fetchEvents(date) {
             kind: "opening",
             weekly_recurring: false
         });
-    // wait on 3 promises at once
+    // wait for 3 promises at the same time
     return await Promise.all([
         appointments,
         recurringOpenings,
         nonRecurringOpenings
-    ]).then(fetchedEvents => {
-        return {
-            appointments: fetchedEvents[0],
-            recurringOpenings: fetchedEvents[1],
-            nonRecurringOpenings: fetchedEvents[2]
-        };
-    });
-}
+    ])
+        .then(fetchedEvents => {
+            return {
+                appointments: fetchedEvents[0],
+                recurringOpenings: fetchedEvents[1],
+                nonRecurringOpenings: fetchedEvents[2]
+            };
+        })
+        .catch(err => {
+            console.log(err);
+            return {
+                appointments: [],
+                recurringOpenings: [],
+                nonRecurringOpenings: []
+            };
+        });
+};
 
 // computes availabilities from events coming from fetchEvents
 const availabilitiesFromEvents = (
@@ -66,21 +75,21 @@ const availabilitiesFromEvents = (
     const appointmentsByDay = new Map();
 
     recurringOpenings.forEach(recurring => {
+        const initialstart = moment(date)
+            .hour(moment(recurring.starts_at).hour())
+            .minute(moment(recurring.starts_at).minute());
+        const initialEnd = moment(date)
+            .hours(moment(recurring.ends_at).hour())
+            .minutes(moment(recurring.ends_at).minute());
         for (
-            let start = moment(date)
-                .hour(moment(recurring.starts_at).hour())
-                .minute(moment(recurring.starts_at).minute());
+            let start = initialstart, end = initialEnd;
             start.isBefore(moment(date).add(7, "days"));
-            start.add(1, "day")
+            start.add(1, "day"), end.add(1, "day")
         ) {
             // weekly openings are skipped on sundays
             if (start.day() === 0) {
                 continue;
             }
-            const end = start
-                .clone()
-                .hours(moment(recurring.ends_at).hour())
-                .minutes(moment(recurring.ends_at).minute());
 
             store(openingsByDay, {
                 kind: "opening",
@@ -120,7 +129,7 @@ const availabilitiesFromEvents = (
             }
         });
         // remove availabilities no longer available from appointments
-        let retrievedAppointments = appointmentsByDay.get(day) || [];
+        const retrievedAppointments = appointmentsByDay.get(day) || [];
         retrievedAppointments.forEach(appointement => {
             for (
                 let availability = moment(appointement.starts_at);
