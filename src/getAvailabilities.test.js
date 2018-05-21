@@ -272,4 +272,51 @@ describe("invalid data", () => {
         expect(availabilities[0].slots.length).toEqual(1);
         expect(availabilities[1].slots.length).toEqual(0);
     });
+    it("should ignore invalid openings", () => {
+        const events = {
+            appointments: [],
+            recurringOpenings: [],
+            nonRecurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-21 12:00"),
+                    ends_at: new Date("2018-05-21 9:00"),
+                    weekly_recurring: false
+                }
+            ]
+        };
+        const availabilities = availabilitiesFromEvents(
+            events,
+            new Date("2018-05-21")
+        );
+        expect(availabilities[0].slots.length).toEqual(0);
+        expect(availabilities[1].slots.length).toEqual(0);
+    });
+    it("should ignore invalid appointements", () => {
+        const events = {
+            appointments: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-21 12:00"),
+                    ends_at: new Date("2018-05-21 9:00"),
+                    weekly_recurring: false
+                }
+            ],
+            recurringOpenings: [],
+            nonRecurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-21 9:00"),
+                    ends_at: new Date("2018-05-21 12:00"),
+                    weekly_recurring: false
+                }
+            ]
+        };
+        const availabilities = availabilitiesFromEvents(
+            events,
+            new Date("2018-05-21")
+        );
+        expect(availabilities[0].slots.length).toEqual(6);
+        expect(availabilities[1].slots.length).toEqual(0);
+    });
 });

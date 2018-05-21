@@ -70,10 +70,9 @@ const availabilitiesFromEvents = (
     { appointments, recurringOpenings, nonRecurringOpenings },
     date
 ) => {
-    // rearrange data by day
-    const openingsByDay = new Map();
-    const appointmentsByDay = new Map();
+    const slotsByDay = new Map();
 
+    // add slots from recurring openings
     recurringOpenings.forEach(recurring => {
         const initialstart = moment(date)
             .hour(moment(recurring.starts_at).hour())
@@ -81,6 +80,15 @@ const availabilitiesFromEvents = (
         const initialEnd = moment(date)
             .hours(moment(recurring.ends_at).hour())
             .minutes(moment(recurring.ends_at).minute());
+        // compute recurring slots
+        const slots = new Set();
+        for (
+            let availability = moment(initialstart);
+            availability.isBefore(moment(initialEnd));
+            availability.add(30, "minutes")
+        ) {
+            slots.add(availability.format("H:mm"));
+        }
         for (
             let start = initialstart, end = initialEnd;
             start.isBefore(moment(date).add(7, "days"));
@@ -91,23 +99,41 @@ const availabilitiesFromEvents = (
                 continue;
             }
 
-            store(openingsByDay, {
-                kind: "opening",
-                starts_at: start.toDate(),
-                ends_at: end.toDate(),
-                weekly_recurring: true
-            });
+            slotsByDay.set(moment(start).format("YYYY-MM-DD"), new Set(slots));
         }
     });
+
+    // add slots from non recurring openings happening next week
     nonRecurringOpenings.forEach(opening => {
-        store(openingsByDay, opening);
+        const day = moment(opening.starts_at).format("YYYY-MM-DD");
+        const slots = slotsByDay.get(day) || new Set();
+        for (
+            let availability = moment(opening.starts_at);
+            availability.isBefore(moment(opening.ends_at));
+            availability.add(30, "minutes")
+        ) {
+            slots.add(availability.format("H:mm"));
+        }
+        slotsByDay.set(day, slots);
     });
 
+    // remove slots already taken by appointments
     appointments.forEach(appointment => {
-        store(appointmentsByDay, appointment);
+        const day = moment(appointment.starts_at).format("YYYY-MM-DD");
+        const slots = slotsByDay.get(day);
+        if (!slots) return;
+        for (
+            let availability = moment(appointment.starts_at);
+            availability.isBefore(appointment.ends_at);
+            availability.add(30, "minutes")
+        ) {
+            const slot = moment(availability).format("H:mm");
+            slots.delete(slot);
+        }
+        slotsByDay.set(day, slots);
     });
 
-    // compute availabilities for each day
+    // format data
     let output = [];
     for (
         let opening = moment(date);
@@ -115,32 +141,8 @@ const availabilitiesFromEvents = (
         opening.add(1, "day")
     ) {
         const day = opening.format("YYYY-MM-DD");
-        const openings = openingsByDay.get(day) || [];
-        // compute set of unique availabilities this day from openings
-        const slots = new Set();
-        openings.forEach(opening => {
-            for (
-                let availability = moment(opening.starts_at);
-                availability.isBefore(opening.ends_at);
-                availability.add(30, "minutes")
-            ) {
-                const slot = availability.format("H:mm");
-                slots.add(slot);
-            }
-        });
-        // remove availabilities no longer available from appointments
-        const retrievedAppointments = appointmentsByDay.get(day) || [];
-        retrievedAppointments.forEach(appointement => {
-            for (
-                let availability = moment(appointement.starts_at);
-                availability.isBefore(appointement.ends_at);
-                availability.add(30, "minutes")
-            ) {
-                const slot = moment(availability).format("H:mm");
-                slots.delete(slot);
-            }
-        });
-        // save computed availabilities
+        const slots = slotsByDay.get(day) || new Set();
+
         output.push({
             date: new Date(day),
             slots: Array.from(slots).sort((a, b) =>
@@ -149,14 +151,6 @@ const availabilitiesFromEvents = (
         });
     }
     return output;
-};
-
-// store an event by day
-const store = (map, event) => {
-    const day = moment(event.starts_at).format("YYYY-MM-DD");
-    let retrieved = map.get(day) || [];
-    retrieved.push(event);
-    map.set(day, retrieved);
 };
 
 export { fetchEvents, availabilitiesFromEvents };
