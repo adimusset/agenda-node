@@ -61,6 +61,12 @@ describe("utils", () => {
                 starts_at: new Date("2014-08-13 9:30"),
                 ends_at: new Date("2014-08-13 20:00"),
                 weekly_recurring: false
+            },
+            {
+                kind: "opening",
+                starts_at: new Date("2014-08-17 9:30"),
+                ends_at: new Date("2014-08-17 20:00"),
+                weekly_recurring: true
             }
         ]);
         const allEvents = await fetchEvents(new Date("2014-08-10"));
@@ -316,6 +322,26 @@ describe("invalid data", () => {
             new Date("2018-05-21")
         );
         expect(availabilities[0].slots.length).toEqual(6);
+        expect(availabilities[1].slots.length).toEqual(0);
+    });
+    it("should ignore recurring openings after next week", () => {
+        const events = {
+            appointments: [],
+            recurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-28 9:00"),
+                    ends_at: new Date("2018-05-28 12:00"),
+                    weekly_recurring: true
+                }
+            ],
+            nonRecurringOpenings: []
+        };
+        const availabilities = availabilitiesFromEvents(
+            events,
+            new Date("2018-05-21")
+        );
+        expect(availabilities[0].slots.length).toEqual(0);
         expect(availabilities[1].slots.length).toEqual(0);
     });
 });

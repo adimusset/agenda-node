@@ -70,6 +70,9 @@ export { fetchEvents, availabilitiesFromEvents };
 
 const computeRecurringOpenings = (recurringOpenings, slotsByDay, date) => {
     recurringOpenings.forEach(recurring => {
+        if (moment(recurring.starts_at).isAfter(moment(date).add(7, "days"))) {
+            return;
+        }
         // compute recurring slots
         const slots = new Set();
         storeSlots(slots, recurring.starts_at, recurring.ends_at);
