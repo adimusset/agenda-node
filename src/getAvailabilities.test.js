@@ -112,8 +112,8 @@ describe("utils", () => {
             recurringOpenings: [
                 {
                     kind: "opening",
-                    starts_at: Date.parse("2018-05-30 21:00"),
-                    ends_at: Date.parse("2018-05-30 21:30"),
+                    starts_at: Date.parse("2018-05-20 21:00"),
+                    ends_at: Date.parse("2018-05-20 21:30"),
                     weekly_recurring: 1
                 }
             ],
@@ -155,33 +155,32 @@ describe("utils", () => {
                     "17:00",
                     "18:30",
                     "19:00",
-                    "19:30",
-                    "21:00"
+                    "19:30"
                 ]
             },
             {
                 date: new Date("2018-05-22"),
-                slots: ["9:00", "11:00", "11:30", "21:00"]
+                slots: ["9:00", "11:00", "11:30"]
             },
             {
                 date: new Date("2018-05-23"),
-                slots: ["21:00"]
+                slots: []
             },
             {
                 date: new Date("2018-05-24"),
-                slots: ["21:00"]
+                slots: []
             },
             {
                 date: new Date("2018-05-25"),
-                slots: ["21:00"]
+                slots: []
             },
             {
                 date: new Date("2018-05-26"),
-                slots: ["21:00"]
+                slots: []
             },
             {
                 date: new Date("2018-05-27"),
-                slots: []
+                slots: ["21:00"]
             }
         ]);
     });
@@ -239,7 +238,7 @@ describe("invalid data", () => {
             new Date("2018-05-21")
         );
         expect(availabilities[0].slots.length).toEqual(6);
-        expect(availabilities[1].slots.length).toEqual(4);
+        expect(availabilities[1].slots.length).toEqual(0);
     });
     it("should ignore overlapping appointments", () => {
         const events = {
