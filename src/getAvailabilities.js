@@ -1,5 +1,9 @@
 import moment from "moment";
-import knex from "../knexClient.js";
+import {
+    getAppointments,
+    getRecurringOpenings,
+    getNonRecurringOpenings
+} from "./datalayer.js";
 
 // get availabilities for following 7 days
 export default async function getAvailabilities(date) {
@@ -9,39 +13,16 @@ export default async function getAvailabilities(date) {
 
 // concurently fetch appointments and openings
 const fetchEvents = async date => {
+    const lastDay = moment(date)
+        .add(1, "week")
+        .toDate();
     // all appointments next week
-    const appointments = knex
-        .select("kind", "starts_at", "ends_at")
-        .from("events")
-        .whereBetween("starts_at", [
-            date,
-            moment(date)
-                .add(1, "week")
-                .toDate()
-        ])
-        .andWhere("kind", "appointment");
-    // all weekly recurring openings
-    const recurringOpenings = knex
-        .select("kind", "starts_at", "ends_at", "weekly_recurring")
-        .from("events")
-        .where({
-            kind: "opening",
-            weekly_recurring: true
-        });
+    const appointments = getAppointments(date, lastDay);
+    // all weekly recurring openings before the end of next week
+    const recurringOpenings = getRecurringOpenings(lastDay);
     // all non recurring openings next week
-    const nonRecurringOpenings = knex
-        .select("kind", "starts_at", "ends_at", "weekly_recurring")
-        .from("events")
-        .whereBetween("starts_at", [
-            date,
-            moment(date)
-                .add(1, "week")
-                .toDate()
-        ])
-        .where({
-            kind: "opening",
-            weekly_recurring: false
-        });
+    const nonRecurringOpenings = getNonRecurringOpenings(date, lastDay);
+
     // wait for 3 promises at the same time
     return await Promise.all([
         appointments,
@@ -72,52 +53,60 @@ const availabilitiesFromEvents = (
 ) => {
     const slotsByDay = new Map();
 
-    // add slots from recurring openings
-    recurringOpenings.forEach(recurring => {
-        const initialstart = moment(date)
-            .hour(moment(recurring.starts_at).hour())
-            .minute(moment(recurring.starts_at).minute());
-        const initialEnd = moment(date)
-            .hours(moment(recurring.ends_at).hour())
-            .minutes(moment(recurring.ends_at).minute());
-        // compute recurring slots
-        const slots = new Set();
-        for (
-            let availability = moment(initialstart);
-            availability.isBefore(moment(initialEnd));
-            availability.add(30, "minutes")
-        ) {
-            slots.add(availability.format("H:mm"));
-        }
-        for (
-            let start = initialstart, end = initialEnd;
-            start.isBefore(moment(date).add(7, "days"));
-            start.add(1, "day"), end.add(1, "day")
-        ) {
-            // weekly openings are skipped on sundays
-            if (start.day() === 0) {
-                continue;
-            }
-
-            slotsByDay.set(moment(start).format("YYYY-MM-DD"), new Set(slots));
-        }
-    });
+    // add slots from recurring openings before end of next week
+    computeRecurringOpenings(recurringOpenings, slotsByDay, date);
 
     // add slots from non recurring openings happening next week
+    computeNonRecurringOpenings(nonRecurringOpenings, slotsByDay);
+
+    // remove slots already taken by appointments next week
+    computeAppointments(appointments, slotsByDay);
+
+    // format data
+    return formatOutput(slotsByDay, date);
+};
+
+export { fetchEvents, availabilitiesFromEvents };
+
+const computeRecurringOpenings = (recurringOpenings, slotsByDay, date) => {
+    recurringOpenings.forEach(recurring => {
+        // compute recurring slots
+        const slots = new Set();
+        storeSlots(slots, recurring.starts_at, recurring.ends_at);
+
+        // compute recurring day next week
+        const startDayOfWeek = moment(date).day();
+        const recurringDayOfWeek = moment(recurring.starts_at).day();
+        const day = moment(date);
+        if (startDayOfWeek <= recurringDayOfWeek) {
+            day.day(recurringDayOfWeek);
+        } else {
+            day.day(recurringDayOfWeek + 7);
+        }
+        slotsByDay.set(day.format("YYYY-MM-DD"), new Set(slots));
+    });
+};
+
+const computeNonRecurringOpenings = (nonRecurringOpenings, slotsByDay) => {
     nonRecurringOpenings.forEach(opening => {
         const day = moment(opening.starts_at).format("YYYY-MM-DD");
         const slots = slotsByDay.get(day) || new Set();
-        for (
-            let availability = moment(opening.starts_at);
-            availability.isBefore(moment(opening.ends_at));
-            availability.add(30, "minutes")
-        ) {
-            slots.add(availability.format("H:mm"));
-        }
+        storeSlots(slots, opening.starts_at, opening.ends_at);
         slotsByDay.set(day, slots);
     });
+};
 
-    // remove slots already taken by appointments
+const storeSlots = (set, start, end) => {
+    for (
+        let availability = moment(start);
+        availability.isBefore(moment(end));
+        availability.add(30, "minutes")
+    ) {
+        set.add(availability.format("H:mm"));
+    }
+};
+
+const computeAppointments = (appointments, slotsByDay) => {
     appointments.forEach(appointment => {
         const day = moment(appointment.starts_at).format("YYYY-MM-DD");
         const slots = slotsByDay.get(day);
@@ -132,8 +121,9 @@ const availabilitiesFromEvents = (
         }
         slotsByDay.set(day, slots);
     });
+};
 
-    // format data
+const formatOutput = (slotsByDay, date) => {
     let output = [];
     for (
         let opening = moment(date);
@@ -152,5 +142,3 @@ const availabilitiesFromEvents = (
     }
     return output;
 };
-
-export { fetchEvents, availabilitiesFromEvents };
