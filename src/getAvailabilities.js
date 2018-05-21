@@ -124,7 +124,7 @@ const availabilitiesFromEvents = (
         if (!slots) return;
         for (
             let availability = moment(appointment.starts_at);
-            availability.isBefore(appointment.ends_at);
+            availability.isBefore(moment(appointment.ends_at));
             availability.add(30, "minutes")
         ) {
             const slot = moment(availability).format("H:mm");
