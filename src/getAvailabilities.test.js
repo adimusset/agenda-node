@@ -188,7 +188,7 @@ describe("utils", () => {
 });
 
 describe("invalid data", () => {
-    it("should ignore invalid appointement", () => {
+    it("should ignore invalid appointment", () => {
         const events = {
             appointments: [
                 {
@@ -241,7 +241,7 @@ describe("invalid data", () => {
         expect(availabilities[0].slots.length).toEqual(6);
         expect(availabilities[1].slots.length).toEqual(4);
     });
-    it("should ignore overlapping appointements", () => {
+    it("should ignore overlapping appointments", () => {
         const events = {
             appointments: [
                 {
@@ -292,7 +292,7 @@ describe("invalid data", () => {
         expect(availabilities[0].slots.length).toEqual(0);
         expect(availabilities[1].slots.length).toEqual(0);
     });
-    it("should ignore invalid appointements", () => {
+    it("should ignore invalid appointments", () => {
         const events = {
             appointments: [
                 {
