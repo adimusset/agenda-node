@@ -73,10 +73,6 @@ const computeRecurringOpenings = (recurringOpenings, slotsByDay, date) => {
         if (moment(recurring.starts_at).isAfter(moment(date).add(7, "days"))) {
             return;
         }
-        // compute recurring slots
-        const slots = new Set();
-        storeSlots(slots, recurring.starts_at, recurring.ends_at);
-
         // compute recurring day next week
         const startDayOfWeek = moment(date).day();
         const recurringDayOfWeek = moment(recurring.starts_at).day();
@@ -86,7 +82,11 @@ const computeRecurringOpenings = (recurringOpenings, slotsByDay, date) => {
         } else {
             day.day(recurringDayOfWeek + 7);
         }
-        slotsByDay.set(day.format("YYYY-MM-DD"), new Set(slots));
+
+        const slots = slotsByDay.get(day.format("YYYY-MM-DD")) || new Set();
+        storeSlots(slots, recurring.starts_at, recurring.ends_at);
+
+        slotsByDay.set(day.format("YYYY-MM-DD"), slots);
     });
 };
 

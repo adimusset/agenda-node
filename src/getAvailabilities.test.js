@@ -357,3 +357,45 @@ describe("invalid data", () => {
         expect(availabilities[1].slots.length).toEqual(0);
     });
 });
+
+describe("v3", () => {
+    it("should compute availabilities with openings on the same day", () => {
+        const events = {
+            appointments: [],
+            recurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-25 9:00"),
+                    ends_at: new Date("2018-05-25 12:00"),
+                    weekly_recurring: false
+                },
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-25 14:00"),
+                    ends_at: new Date("2018-05-25 16:00"),
+                    weekly_recurring: false
+                }
+            ],
+            nonRecurringOpenings: [
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-24 9:00"),
+                    ends_at: new Date("2018-05-24 12:00"),
+                    weekly_recurring: false
+                },
+                {
+                    kind: "opening",
+                    starts_at: new Date("2018-05-24 14:00"),
+                    ends_at: new Date("2018-05-24 16:00"),
+                    weekly_recurring: false
+                }
+            ]
+        };
+        const availabilities = availabilitiesFromEvents(
+            events,
+            new Date("2018-05-24")
+        );
+        expect(availabilities[0].slots.length).toEqual(10);
+        expect(availabilities[1].slots.length).toEqual(10);
+    });
+});
